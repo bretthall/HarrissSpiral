@@ -1,15 +1,22 @@
-module Harriss (Point, LeftRight, UpperLower, Corner, Rect, Division, p, divisions, generations) where
+module Harriss (Point, 
+                LeftRight, UpperLower, Corner, 
+                Rect, 
+                Division, 
+                divisions, 
+                p, 
+                generations,
+                ArcOpening,
+                Arc,
+                DrawingInstruction,
+                instructionsForDivision) where
 
 import Prelude hiding (Left, Right, length, div)
 
-data Point = P Double Double deriving Show
+data Point = P {x::Double, y::Double} deriving Show
 
-data LeftRight = Left | Right
-   deriving Show
-data UpperLower = Upper | Lower
-   deriving Show
-data Corner = C UpperLower LeftRight
-   deriving Show
+data LeftRight = Left | Right deriving Show
+data UpperLower = Upper | Lower deriving Show
+data Corner = C UpperLower LeftRight deriving Show
 
 data Rect = Rect {lowerLeft::Point, upperRight::Point} deriving Show
 
@@ -74,3 +81,28 @@ generations d = [d]:(next [d])
       next ds = ds':(next ds')
           where 
             ds' = concatMap (\d -> [(snd.rect1) d, (snd.rect2) d]) ds
+
+data ArcOpening = North | East | South | West deriving Show
+data Arc = Arc {opening::ArcOpening, p1::Point, p2::Point} deriving Show
+
+data DrawingInstruction = DI {entry1::Corner, sqr::Rect, arc1::Arc, arc2::Arc} deriving Show
+
+instructionsForDivision :: Division -> DrawingInstruction
+instructionsForDivision (Div c@(C Lower Left) s (r1, d1) (r2, d2)) = 
+    DI c s (Arc West (lowerLeft s) ur) (Arc North ur (P ((x.lowerLeft.square) d2) (y ur))) 
+        where 
+          ur = (P ((x.lowerLeft) s) ((y.upperRight) s))
+instructionsForDivision (Div c@(C Upper Left) s (r1, d1) (r2, d2)) = 
+    DI c s (Arc North ul (upperRight s)) (Arc North (upperRight s) (P ((x.upperRight) s) ((y.lowerLeft.square) d2))) 
+        where 
+          ul = (P ((x.lowerLeft) s) ((y.upperRight) s))
+instructionsForDivision (Div c@(C Upper Right) s (r1, d1) (r2, d2)) = 
+    DI c s (Arc East (upperRight s) lr) (Arc South lr (P ((x.upperRight.square) d2) ((y.lowerLeft) s))) 
+        where 
+          lr = (P ((x.upperRight) s) ((y.lowerLeft) s))
+instructionsForDivision (Div c@(C Lower Right) s (r1, d1) (r2, d2)) = 
+    DI c s (Arc South lr (lowerLeft s)) (Arc West (lowerLeft s) (P ((x.upperRight.square) d2) ((y.lowerLeft) s))) 
+        where 
+          lr = (P ((x.upperRight) s) ((y.lowerLeft) s))
+
+
