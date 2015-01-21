@@ -16,8 +16,8 @@ data GUIState = GUIState {_numGens::Int, _drawCurves::Bool, _drawSquares::Bool, 
 $(makeLenses ''GUIState)
 
 debugPrintM :: (Monad m, Show a) => a -> m ()
-debugPrintM a = traceShow a $ return ()
---debugPrintM _ = return ()
+--debugPrintM a = traceShow a $ return ()
+debugPrintM _ = return ()
 
 makeCheckButton :: String -> Lens' GUIState Bool -> IORef GUIState -> VBox -> DrawingArea -> IO CheckButton
 makeCheckButton text lens stateRef box plot = do
@@ -60,22 +60,24 @@ drawPlot plot guiState _ = do
                      debugPrintM $ "(w,h) = " ++ show (uw, uh)
 
                      translate 0.0 uh
-                     if w < h
-                     then scale (uw/plotScale)(-uw/plotScale)
-                     else scale (uh/plotScale)(-uh/plotScale)
+                     scale (uw/plotScale)(-uw/plotScale)
 
                      ll <- deviceToUser 0.0 (fromIntegral h)
                      debugPrintM $ "lower left = " ++ show ll
 
                      ur <- deviceToUser (fromIntegral w) 0.0
                      debugPrintM $ "upper right = " ++ show ur
+                     
+                     let plotWidth = if snd ur < fst ur / p
+                                     then snd ur * p
+                                     else fst ur
 
                      setSourceRGB 1.0 1.0 1.0
                      paint
 
                      setLineWidth 10                     
                      setSourceRGB 0.0 0.0 0.0
-                     drawGenerations $ take (state^.numGens) $ generations $ divisions plotScale
+                     drawGenerations $ take (state^.numGens) $ generations $ divisions plotWidth
   debugPrintM "****** done drawing"
   return True
       where
