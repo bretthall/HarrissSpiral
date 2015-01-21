@@ -8,11 +8,16 @@ import Graphics.Rendering.Cairo
 import Graphics.UI.Gtk.Gdk.Events
 import Data.IORef
 import Control.Lens
+import Debug.Trace (traceShow)
 
 data GUIState = GUIState {_numGens::Int, _drawCurves::Bool, _drawSquares::Bool, _colorSquares::Bool, _drawSplitRects::Bool}
               deriving Show
 
 $(makeLenses ''GUIState)
+
+debugPrintM :: (Monad m, Show a) => a -> m ()
+debugPrintM a = traceShow a $ return ()
+--debugPrintM _ = return ()
 
 makeCheckButton :: String -> Lens' GUIState Bool -> IORef GUIState -> VBox -> DrawingArea -> IO CheckButton
 makeCheckButton text lens stateRef box plot = do
@@ -27,14 +32,14 @@ makeCheckButton text lens stateRef box plot = do
       updateCheckedState button state lens = do
                                            checked <- toggleButtonGetActive button 
                                            modifyIORef state $ lens.~checked
-                                           readIORef state >>= print
+                                           readIORef state >>= debugPrintM
                                            widgetQueueDraw plot
                                                                    
 updateGeneration :: SpinButton -> IORef GUIState -> DrawingArea -> IO ()
 updateGeneration sb state plot = do
   g  <- spinButtonGetValue sb
   modifyIORef state $ numGens.~(round g)
-  readIORef state >>= print
+  readIORef state >>= debugPrintM
   widgetQueueDraw plot
 
 plotScale :: Double
@@ -44,15 +49,15 @@ data RectType = First | Second deriving (Show, Eq)
                       
 drawPlot :: DrawingArea -> IORef GUIState -> Event -> IO Bool
 drawPlot plot guiState _ = do
-  print "****** drawing"
+  debugPrintM "****** drawing"
   win <- widgetGetDrawWindow plot
   (w, h) <- widgetGetSize plot
   state <- readIORef guiState
   renderWithDrawable win $ do
                      p0 <- deviceToUser 0.0 0.0 
-                     liftIO $ putStrLn $ "(0,0) = " ++ show p0
+                     debugPrintM $ "(0,0) = " ++ show p0
                      (uw, uh) <- deviceToUser (fromIntegral w) (fromIntegral h) 
-                     liftIO $ putStrLn $ "(w,h) = " ++ show (uw, uh)
+                     debugPrintM $ "(w,h) = " ++ show (uw, uh)
 
                      translate 0.0 uh
                      if w < h
@@ -60,10 +65,10 @@ drawPlot plot guiState _ = do
                      else scale (uh/plotScale)(-uh/plotScale)
 
                      ll <- deviceToUser 0.0 (fromIntegral h)
-                     liftIO $ putStrLn $ "lower left = " ++ show ll
+                     debugPrintM $ "lower left = " ++ show ll
 
                      ur <- deviceToUser (fromIntegral w) 0.0
-                     liftIO $ putStrLn $ "upper right = " ++ show ur
+                     debugPrintM $ "upper right = " ++ show ur
 
                      setSourceRGB 1.0 1.0 1.0
                      paint
@@ -71,10 +76,9 @@ drawPlot plot guiState _ = do
                      setLineWidth 10                     
                      setSourceRGB 0.0 0.0 0.0
                      drawGenerations $ take (state^.numGens) $ generations $ divisions plotScale
-  print "****** done drawing"
+  debugPrintM "****** done drawing"
   return True
       where
-        ioPrint msg = liftIO $ print msg
         drawGenerations (g:gs) = do 
                              drawGeneration g
                              if null gs
@@ -82,23 +86,23 @@ drawPlot plot guiState _ = do
                                 else drawGenerations gs
         drawGenerations [] = return ()
         drawGeneration g = do 
-          ioPrint "**** gen start" 
+          debugPrintM "**** gen start" 
           mapM_ drawSquare g
-          ioPrint "**** gen end"
+          debugPrintM "**** gen end"
         drawLastGeneration (Div _ _ (r1, _) (r2, _)) = do
-            ioPrint "**** last gen start"
+            debugPrintM "**** last gen start"
             drawRect First r1 
             drawRect Second r2
-            ioPrint "**** last gen end"
+            debugPrintM "**** last gen end"
         drawSquare (Div e s _ _) = do
-                             (liftIO $ print s) 
+                             debugPrintM s 
                              strokeRect s
                              setSquareColor e
                              fillPreserve
                              setSourceRGB 0.0 0.0 0.0
                              stroke
         drawRect t r = do
-          (liftIO $ print $ show t ++ show r) 
+          debugPrintM $ show t ++ show r
           strokeRect r
           if t == First
              then setSourceRGB 0.0 0.0 1.0
