@@ -1,7 +1,7 @@
-module Harriss (Point, 
-                LeftRight, UpperLower, Corner, 
-                Rect, 
-                Division, 
+module Harriss (Point(P), 
+                Corner(C), LeftRight(Left, Right), UpperLower(Upper, Lower),             
+                Rect(Rect), 
+                Division(Div),
                 divisions, 
                 p, 
                 generations,
@@ -29,9 +29,9 @@ p :: Double
 p = 1.32471795724474602596
                  
 divisions :: Double -> Division
-divisions h = div initRect (C Lower Left)
+divisions w = div initRect (C Lower Left)
     where
-      initRect = Rect (P 0 0) (P (h*p) h)
+      initRect = Rect (P 0 0) (P w (w/p))
 
 div :: Rect -> Corner -> Division
 div (Rect (P x1 y1) (P x2 y2)) c@(C Lower Left) = Div c sqr (r1, div r1 (C Lower Right)) (r2, div r2 c)
@@ -54,6 +54,7 @@ div (Rect (P x1 y1) (P x2 y2)) c@(C Lower Right) = Div c sqr (r1, div r1 (C Uppe
       sqr = Rect (P (x1 + w') (y1 + h')) (P x2 y2) 
       r1 = Rect (P x1 y1) (P x2 (y2 + h'))
       r2 = Rect (P x1 (y1 + h')) (P (x1 + w') y2)
+-- something is going haywire in this div:
 div (Rect (P x1 y1) (P x2 y2)) c@(C Upper Right) = Div c sqr (r1, div r1 (C Upper Left)) (r2, div r2 c)
     where
       h = y2 - y1
