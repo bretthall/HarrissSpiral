@@ -40,9 +40,11 @@ updateGeneration sb state plot = do
 plotScale :: Double
 plotScale = 10000.0
 
+data RectType = First | Second deriving (Show, Eq)
+                      
 drawPlot :: DrawingArea -> IORef GUIState -> Event -> IO Bool
 drawPlot plot guiState _ = do
-  print "drawing"
+  print "****** drawing"
   win <- widgetGetDrawWindow plot
   (w, h) <- widgetGetSize plot
   state <- readIORef guiState
@@ -68,11 +70,26 @@ drawPlot plot guiState _ = do
 
                      setLineWidth 10                     
                      setSourceRGB 0.0 0.0 0.0
-                     mapM_ drawGeneration $ take (state^.numGens) $ generations $ divisions plotScale
-                     
+                     drawGenerations $ take (state^.numGens) $ generations $ divisions plotScale
+  print "****** done drawing"
   return True
       where
-        drawGeneration = mapM_ drawSquare
+        ioPrint msg = liftIO $ print msg
+        drawGenerations (g:gs) = do 
+                             drawGeneration g
+                             if null gs
+                                then mapM_ drawLastGeneration g
+                                else drawGenerations gs
+        drawGenerations [] = return ()
+        drawGeneration g = do 
+          ioPrint "**** gen start" 
+          mapM_ drawSquare g
+          ioPrint "**** gen end"
+        drawLastGeneration (Div _ _ (r1, _) (r2, _)) = do
+            ioPrint "**** last gen start"
+            drawRect First r1 
+            drawRect Second r2
+            ioPrint "**** last gen end"
         drawSquare (Div e s _ _) = do
                              (liftIO $ print s) 
                              strokeRect s
@@ -80,6 +97,15 @@ drawPlot plot guiState _ = do
                              fillPreserve
                              setSourceRGB 0.0 0.0 0.0
                              stroke
+        drawRect t r = do
+          (liftIO $ print $ show t ++ show r) 
+          strokeRect r
+          if t == First
+             then setSourceRGB 0.0 0.0 1.0
+             else setSourceRGB 0.0 1.0 0.0
+          fillPreserve
+          setSourceRGB 0.0 0.0 0.0
+          stroke
         strokeRect (Rect (P x1 y1) (P x2 y2)) = Graphics.Rendering.Cairo.rectangle x1 y1 (x2 - x1) (y2 - y1)
         setSquareColor (C Lower Harriss.Left) = setSourceRGB 1.0 1.0 0.0
         setSquareColor (C Upper Harriss.Left) = setSourceRGB 1.0 0.0 1.0
