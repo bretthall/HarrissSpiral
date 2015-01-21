@@ -14,8 +14,8 @@ data GUIState = GUIState {_numGens::Int, _drawCurves::Bool, _drawSquares::Bool, 
 
 $(makeLenses ''GUIState)
 
-makeCheckButton :: String -> Lens' GUIState Bool -> IORef GUIState -> VBox -> IO CheckButton
-makeCheckButton text lens stateRef box = do
+makeCheckButton :: String -> Lens' GUIState Bool -> IORef GUIState -> VBox -> DrawingArea -> IO CheckButton
+makeCheckButton text lens stateRef box plot = do
   button <- checkButtonNewWithMnemonic text
   boxPackStart box button PackNatural 1
   state <- readIORef stateRef
@@ -28,15 +28,18 @@ makeCheckButton text lens stateRef box = do
                                            checked <- toggleButtonGetActive button 
                                            modifyIORef state $ lens.~checked
                                            readIORef state >>= print
+                                           widgetQueueDraw plot
                                                                    
-updateGeneration :: SpinButton -> IORef GUIState -> IO ()
-updateGeneration sb state = do
+updateGeneration :: SpinButton -> IORef GUIState -> DrawingArea -> IO ()
+updateGeneration sb state plot = do
   g  <- spinButtonGetValue sb
   modifyIORef state $ numGens.~(round g)
   readIORef state >>= print
+  widgetQueueDraw plot
 
 drawPlot :: DrawingArea -> IORef GUIState -> Event -> IO Bool
 drawPlot plot guiState _ = do
+  print "drawing"
   win <- widgetGetDrawWindow plot
   (w, h) <- widgetGetSize plot
   renderWithDrawable win $ do
@@ -71,7 +74,7 @@ main = do
   initGUI
   win <- windowNew
   onDestroy win mainQuit
-  windowSetDefaultSize win 300 300
+  windowSetDefaultSize win 800 500
 
   vBox <- vBoxNew False 0
   containerAdd win vBox
@@ -82,16 +85,16 @@ main = do
   boxPackStart vBox plot PackGrow 0
   onExpose plot $ drawPlot plot guiState
 
-  --need to force repaint in signal handlers
   gen <- spinButtonNewWithRange 0.0 100000.0 1.0
   boxPackStart vBox gen PackNatural 1
-  onValueSpinned gen (updateGeneration gen guiState)
+  onValueSpinned gen (updateGeneration gen guiState plot)
   
-  makeCheckButton "Draw _Curves" drawCurves guiState vBox
-  makeCheckButton "Draw _Squares" drawSquares guiState vBox
-  makeCheckButton "Color _Squares" colorSquares guiState vBox
-  makeCheckButton "Draw _Split Rectangles" drawSplitRects guiState vBox
+  makeCheckButton "Draw _Curves" drawCurves guiState vBox plot
+  makeCheckButton "Draw _Squares" drawSquares guiState vBox plot
+  makeCheckButton "Color _Squares" colorSquares guiState vBox plot
+  makeCheckButton "Draw _Split Rectangles" drawSplitRects guiState vBox plot
 
   widgetShowAll win
-  
+  widgetQueueDraw plot
+
   mainGUI
