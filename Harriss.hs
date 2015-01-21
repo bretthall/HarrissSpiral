@@ -52,9 +52,8 @@ div (Rect (P x1 y1) (P x2 y2)) c@(C Lower Right) = Div c sqr (r1, div r1 (C Uppe
       s = w' * p
       h' = w / p
       sqr = Rect (P (x1 + w') (y1 + h')) (P x2 y2) 
-      r1 = Rect (P x1 y1) (P x2 (y2 + h'))
+      r1 = Rect (P x1 y1) (P x2 (y1 + h'))
       r2 = Rect (P x1 (y1 + h')) (P (x1 + w') y2)
--- something is going haywire in this div:
 div (Rect (P x1 y1) (P x2 y2)) c@(C Upper Right) = Div c sqr (r1, div r1 (C Upper Left)) (r2, div r2 c)
     where
       h = y2 - y1

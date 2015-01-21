@@ -95,7 +95,7 @@ drawPlot plot guiState _ = do
             drawRect Second r2
             debugPrintM "**** last gen end"
         drawSquare (Div e s _ _) = do
-                             debugPrintM s 
+                             debugPrintM $ show e ++ show s 
                              strokeRect s
                              setSquareColor e
                              fillPreserve
