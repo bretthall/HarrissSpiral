@@ -5,10 +5,8 @@ module Harriss (Point(P),
                 divisions, 
                 p, 
                 generations,
-                ArcOpening,
-                Arc,
-                DrawingInstruction,
-                instructionsForDivision) where
+                Arc (Arc),
+                arcsForDivision) where
 
 import Prelude hiding (Left, Right, length, div)
 
@@ -82,27 +80,67 @@ generations d = [d]:(next [d])
           where 
             ds' = concatMap (\d -> [(snd.rect1) d, (snd.rect2) d]) ds
 
-data ArcOpening = North | East | South | West deriving Show
-data Arc = Arc {opening::ArcOpening, p1::Point, p2::Point} deriving Show
+data Arc = Arc {center::Point, radius::Double, angle1::Double, angle2::Double} deriving Show
 
-data DrawingInstruction = DI {entry1::Corner, sqr::Rect, arc1::Arc, arc2::Arc} deriving Show
+radiusMult = 1.5
 
-instructionsForDivision :: Division -> DrawingInstruction
-instructionsForDivision (Div c@(C Lower Left) s (r1, d1) (r2, d2)) = 
-    DI c s (Arc West (lowerLeft s) ur) (Arc North ur (P ((x.lowerLeft.square) d2) (y ur))) 
-        where 
-          ur = (P ((x.lowerLeft) s) ((y.upperRight) s))
-instructionsForDivision (Div c@(C Upper Left) s (r1, d1) (r2, d2)) = 
-    DI c s (Arc North ul (upperRight s)) (Arc North (upperRight s) (P ((x.upperRight) s) ((y.lowerLeft.square) d2))) 
-        where 
-          ul = (P ((x.lowerLeft) s) ((y.upperRight) s))
-instructionsForDivision (Div c@(C Upper Right) s (r1, d1) (r2, d2)) = 
-    DI c s (Arc East (upperRight s) lr) (Arc South lr (P ((x.upperRight.square) d2) ((y.lowerLeft) s))) 
-        where 
-          lr = (P ((x.upperRight) s) ((y.lowerLeft) s))
-instructionsForDivision (Div c@(C Lower Right) s (r1, d1) (r2, d2)) = 
-    DI c s (Arc South lr (lowerLeft s)) (Arc West (lowerLeft s) (P ((x.upperRight.square) d2) ((y.lowerLeft) s))) 
-        where 
-          lr = (P ((x.upperRight) s) ((y.lowerLeft) s))
+arcForPointsVerticalUp :: Point -> Point -> Arc
+arcForPointsVerticalUp (P x1 y1) (P x2 y2) = Arc c r a1 a2
+    where 
+      d = y2 - y1
+      r = radiusMult * d
+      a = asin (d/(2.0*r))
+      a1 = -a
+      a2 = a
+      c = P (x1 - r*(sin a)) (y1 + d/2.0)
+arcForPointsVerticalDown :: Point -> Point -> Arc
+arcForPointsVerticalDown (P x1 y1) (P x2 y2) = Arc c r a1 a2
+    where 
+      d = y1 - y2
+      r = radiusMult * d
+      a = asin (d/(2.0*r))
+      a1 = pi - a
+      a2 = pi + a
+      c = P (x1 + r*(sin a)) (y2 + d/2.0)
+arcForPointsHorizontalLeft :: Point -> Point -> Arc
+arcForPointsHorizontalLeft (P x1 y1) (P x2 y2) = Arc c r a1 a2
+    where 
+      d = x2 - x1
+      r = radiusMult * d
+      a = asin (d/(2.0*r))
+      a1 = 3.0*pi/2.0 - a
+      a2 = 3.0*pi/2.0 + a
+      c = P (x1 + d/2.0) (y1 + r*(sin a))
+arcForPointsHorizontalRight :: Point -> Point -> Arc
+arcForPointsHorizontalRight (P x1 y1) (P x2 y2) = Arc c r a1 a2
+    where 
+      d = x1 - x2
+      r = radiusMult * d
+      a = asin (d/(2.0*r))
+      a1 = pi/2.0 - a
+      a2 = pi/2.0 + a
+      c = P (x1 + d/2.0) (y1 - r*(sin a))
+
+arcsForDivision :: Division -> (Arc, Arc)
+arcsForDivision (Div (C Lower Left) (Rect p1@(P x1 y1) p2@(P x2 y2)) _ (_, Div _ (Rect (P x1' _) _) _ _)) = (a1, a2)
+    where 
+      p' = P x1 y2
+      a1 = arcForPointsVerticalUp p1 p'
+      a2 = arcForPointsHorizontalLeft p' (P x1' y2)
+arcsForDivision (Div (C Lower Right) (Rect p1@(P x1 y1) p2@(P x2 y2)) _ (_, Div _ (Rect _ (P _ y2')) _ _)) = (a1, a2)
+    where 
+      p' = P x2 y1
+      a1 = arcForPointsHorizontalRight p' p1
+      a2 = arcForPointsVerticalUp p1 (P x1 y2')
+arcsForDivision (Div (C Upper Right) (Rect p1@(P x1 y1) p2@(P x2 y2)) _ (_, Div _ (Rect _ (P x2' _)) _ _)) = (a1, a2)
+    where 
+      p' = P x2 y1
+      a1 = arcForPointsVerticalDown p2 p'
+      a2 = arcForPointsHorizontalRight p' (P x2' y1)
+arcsForDivision (Div (C Upper Left) (Rect p1@(P x1 y1) p2@(P x2 y2)) _ (_, Div _ (Rect _ (P _ y2')) _ _)) = (a1, a2)
+    where 
+      p' = P x1 y2
+      a1 = arcForPointsHorizontalLeft p' p2
+      a2 = arcForPointsVerticalDown p2 (P x2 y2')
 
 

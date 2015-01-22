@@ -96,13 +96,19 @@ drawPlot plot guiState _ = do
             drawRect First r1 
             drawRect Second r2
             debugPrintM "**** last gen end"
-        drawSquare (Div e s _ _) = do
+        drawSquare d@(Div e s _ _) = do
                              debugPrintM $ show e ++ show s 
                              strokeRect s
                              setSquareColor e
                              fillPreserve
                              setSourceRGB 0.0 0.0 0.0
                              stroke
+                             let (a1, a2) = arcsForDivision d
+                             strokeArc a1
+                             stroke
+                             strokeArc a2
+                             stroke
+        strokeArc (Arc (P x y) r a1 a2) = arc x y r a1 a2
         drawRect t r = do
           debugPrintM $ show t ++ show r
           strokeRect r
