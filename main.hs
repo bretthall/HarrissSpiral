@@ -47,6 +47,8 @@ plotScale = 10000.0
 
 data RectType = First | Second deriving (Show, Eq)
                       
+radiusMult = 1.0
+
 drawPlot :: DrawingArea -> IORef GUIState -> Event -> IO Bool
 drawPlot plot guiState _ = do
   debugPrintM "****** drawing"
@@ -103,11 +105,13 @@ drawPlot plot guiState _ = do
                              fillPreserve
                              setSourceRGB 0.0 0.0 0.0
                              stroke
-                             let (a1, a2) = arcsForDivision d
+                             let (a1, a2) = arcsForDivision radiusMult d
+                             debugPrintM (a1, a2)
                              strokeArc a1
                              stroke
                              strokeArc a2
                              stroke
+        -- probably would look better to use a bezier curve here, circular arcs have kinks at the corners of the squares
         strokeArc (Arc (P x y) r a1 a2) = arc x y r a1 a2
         drawRect t r = do
           debugPrintM $ show t ++ show r

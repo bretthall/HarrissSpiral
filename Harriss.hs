@@ -82,65 +82,63 @@ generations d = [d]:(next [d])
 
 data Arc = Arc {center::Point, radius::Double, angle1::Double, angle2::Double} deriving Show
 
-radiusMult = 1.5
-
-arcForPointsVerticalUp :: Point -> Point -> Arc
-arcForPointsVerticalUp (P x1 y1) (P x2 y2) = Arc c r a1 a2
+arcForPointsVerticalUp :: Double -> Point -> Point -> Arc
+arcForPointsVerticalUp radiusMult (P x1 y1) (P x2 y2) = Arc c r a1 a2
     where 
       d = y2 - y1
       r = radiusMult * d
-      a = asin (d/(2.0*r))
+      a = asin (1.0/(2.0*radiusMult))
       a1 = -a
       a2 = a
-      c = P (x1 - r*(sin a)) (y1 + d/2.0)
-arcForPointsVerticalDown :: Point -> Point -> Arc
-arcForPointsVerticalDown (P x1 y1) (P x2 y2) = Arc c r a1 a2
+      c = P (x1 - r*(cos a)) (y1 + d/2.0)
+arcForPointsVerticalDown :: Double -> Point -> Point -> Arc
+arcForPointsVerticalDown radiusMult (P x1 y1) (P x2 y2) = Arc c r a1 a2
     where 
       d = y1 - y2
       r = radiusMult * d
-      a = asin (d/(2.0*r))
+      a = asin (1.0/(2.0*radiusMult))
       a1 = pi - a
       a2 = pi + a
-      c = P (x1 + r*(sin a)) (y2 + d/2.0)
-arcForPointsHorizontalLeft :: Point -> Point -> Arc
-arcForPointsHorizontalLeft (P x1 y1) (P x2 y2) = Arc c r a1 a2
+      c = P (x1 + r*(cos a)) (y2 + d/2.0)
+arcForPointsHorizontalLeft :: Double -> Point -> Point -> Arc
+arcForPointsHorizontalLeft radiusMult (P x1 y1) (P x2 y2) = Arc c r a1 a2
     where 
       d = x2 - x1
       r = radiusMult * d
-      a = asin (d/(2.0*r))
+      a = asin (1.0/(2.0*radiusMult))
       a1 = 3.0*pi/2.0 - a
       a2 = 3.0*pi/2.0 + a
-      c = P (x1 + d/2.0) (y1 + r*(sin a))
-arcForPointsHorizontalRight :: Point -> Point -> Arc
-arcForPointsHorizontalRight (P x1 y1) (P x2 y2) = Arc c r a1 a2
+      c = P (x1 + d/2.0) (y1 + r*(cos a))
+arcForPointsHorizontalRight :: Double -> Point -> Point -> Arc
+arcForPointsHorizontalRight radiusMult (P x1 y1) (P x2 y2) = Arc c r a1 a2
     where 
       d = x1 - x2
       r = radiusMult * d
-      a = asin (d/(2.0*r))
+      a = asin (1.0/(2.0*radiusMult))
       a1 = pi/2.0 - a
       a2 = pi/2.0 + a
-      c = P (x1 + d/2.0) (y1 - r*(sin a))
+      c = P (x2 + d/2.0) (y1 - r*(cos a))
 
-arcsForDivision :: Division -> (Arc, Arc)
-arcsForDivision (Div (C Lower Left) (Rect p1@(P x1 y1) p2@(P x2 y2)) _ (_, Div _ (Rect (P x1' _) _) _ _)) = (a1, a2)
+arcsForDivision :: Double -> Division -> (Arc, Arc)
+arcsForDivision radiusMult (Div (C Lower Left) (Rect p1@(P x1 y1) p2@(P x2 y2)) _ (_, Div _ (Rect (P x1' _) _) _ _)) = (a1, a2)
     where 
       p' = P x1 y2
-      a1 = arcForPointsVerticalUp p1 p'
-      a2 = arcForPointsHorizontalLeft p' (P x1' y2)
-arcsForDivision (Div (C Lower Right) (Rect p1@(P x1 y1) p2@(P x2 y2)) _ (_, Div _ (Rect _ (P _ y2')) _ _)) = (a1, a2)
+      a1 = arcForPointsVerticalUp radiusMult p1 p'
+      a2 = arcForPointsHorizontalLeft radiusMult p' (P x1' y2)
+arcsForDivision radiusMult (Div (C Lower Right) (Rect p1@(P x1 y1) p2@(P x2 y2)) _ (_, Div _ (Rect (P _ y1') _) _ _)) = (a1, a2)
     where 
       p' = P x2 y1
-      a1 = arcForPointsHorizontalRight p' p1
-      a2 = arcForPointsVerticalUp p1 (P x1 y2')
-arcsForDivision (Div (C Upper Right) (Rect p1@(P x1 y1) p2@(P x2 y2)) _ (_, Div _ (Rect _ (P x2' _)) _ _)) = (a1, a2)
+      a1 = arcForPointsHorizontalRight radiusMult p' p1
+      a2 = arcForPointsVerticalUp radiusMult p1 (P x1 y1')
+arcsForDivision radiusMult (Div (C Upper Right) (Rect p1@(P x1 y1) p2@(P x2 y2)) _ (_, Div _ (Rect _ (P x2' _)) _ _)) = (a1, a2)
     where 
       p' = P x2 y1
-      a1 = arcForPointsVerticalDown p2 p'
-      a2 = arcForPointsHorizontalRight p' (P x2' y1)
-arcsForDivision (Div (C Upper Left) (Rect p1@(P x1 y1) p2@(P x2 y2)) _ (_, Div _ (Rect _ (P _ y2')) _ _)) = (a1, a2)
+      a1 = arcForPointsVerticalDown radiusMult p2 p'
+      a2 = arcForPointsHorizontalRight radiusMult p' (P x2' y1)
+arcsForDivision radiusMult (Div (C Upper Left) (Rect p1@(P x1 y1) p2@(P x2 y2)) _ (_, Div _ (Rect _ (P _ y2')) _ _)) = (a1, a2)
     where 
       p' = P x1 y2
-      a1 = arcForPointsHorizontalLeft p' p2
-      a2 = arcForPointsVerticalDown p2 (P x2 y2')
+      a1 = arcForPointsHorizontalLeft radiusMult p' p2
+      a2 = arcForPointsVerticalDown radiusMult p2 (P x2 y2')
 
 
