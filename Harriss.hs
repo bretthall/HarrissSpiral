@@ -5,8 +5,10 @@ module Harriss (Point(P),
                 divisions, 
                 p, 
                 generations,
-                Arc (Arc),
-                arcsForDivision) where
+                Angle,
+                MagnitudeMult,
+                BCurve (BCurve),
+                curvesForDivision) where
 
 import Prelude hiding (Left, Right, length, div)
 
@@ -80,65 +82,66 @@ generations d = [d]:(next [d])
           where 
             ds' = concatMap (\d -> [(snd.rect1) d, (snd.rect2) d]) ds
 
-data Arc = Arc {center::Point, radius::Double, angle1::Double, angle2::Double} deriving Show
+data BCurve = BCurve {p0::Point, p1::Point, p2::Point, p3::Point} deriving Show
+type Angle = Double
+type SinAndCosOfA = (Double, Double)
+type MagnitudeMult = Double
 
-arcForPointsVerticalUp :: Double -> Point -> Point -> Arc
-arcForPointsVerticalUp radiusMult (P x1 y1) (P x2 y2) = Arc c r a1 a2
+curveForPointsVerticalUp :: SinAndCosOfA -> MagnitudeMult -> Point -> Point -> BCurve
+curveForPointsVerticalUp (sa, ca) mm p0@(P x0 y0) p3@(P x3 y3) = BCurve p0 p1 p2 p3 
     where 
-      d = y2 - y1
-      r = radiusMult * d
-      a = asin (1.0/(2.0*radiusMult))
-      a1 = -a
-      a2 = a
-      c = P (x1 - r*(cos a)) (y1 + d/2.0)
-arcForPointsVerticalDown :: Double -> Point -> Point -> Arc
-arcForPointsVerticalDown radiusMult (P x1 y1) (P x2 y2) = Arc c r a1 a2
+      d = y3 - y0
+      l = mm*d
+      l'= l/p --needed to get smoothness with next segment of curve
+      p1 = P (x0 + l*sa) (y0 + l*ca)
+      p2 = P (x3 + l'*ca) (y3 - l'*sa)
+curveForPointsHorizontalRight :: SinAndCosOfA -> MagnitudeMult -> Point -> Point -> BCurve
+curveForPointsHorizontalRight (sa, ca) mm p0@(P x0 y0) p3@(P x3 y3) = BCurve p0 p1 p2 p3 
     where 
-      d = y1 - y2
-      r = radiusMult * d
-      a = asin (1.0/(2.0*radiusMult))
-      a1 = pi - a
-      a2 = pi + a
-      c = P (x1 + r*(cos a)) (y2 + d/2.0)
-arcForPointsHorizontalLeft :: Double -> Point -> Point -> Arc
-arcForPointsHorizontalLeft radiusMult (P x1 y1) (P x2 y2) = Arc c r a1 a2
+      d = x0 - x3
+      l = mm*d
+      l'= l/p --needed to get smoothness with next segment of curve
+      p1 = P (x0 - l*ca) (y0 + l*sa)
+      p2 = P (x3 + l'*sa) (y3 + l'*ca)
+curveForPointsVerticalDown :: SinAndCosOfA -> MagnitudeMult -> Point -> Point -> BCurve
+curveForPointsVerticalDown (sa, ca) mm p0@(P x0 y0) p3@(P x3 y3) = BCurve p0 p1 p2 p3 
     where 
-      d = x2 - x1
-      r = radiusMult * d
-      a = asin (1.0/(2.0*radiusMult))
-      a1 = 3.0*pi/2.0 - a
-      a2 = 3.0*pi/2.0 + a
-      c = P (x1 + d/2.0) (y1 + r*(cos a))
-arcForPointsHorizontalRight :: Double -> Point -> Point -> Arc
-arcForPointsHorizontalRight radiusMult (P x1 y1) (P x2 y2) = Arc c r a1 a2
+      d = y0 - y3
+      l = mm*d
+      l'= l/p --needed to get smoothness with next segment of curve
+      p1 = P (x0 - l*sa) (y0 - l*ca)
+      p2 = P (x3 - l'*ca) (y3 + l'*sa)
+curveForPointsHorizontalLeft :: SinAndCosOfA -> MagnitudeMult -> Point -> Point -> BCurve
+curveForPointsHorizontalLeft (sa, ca) mm p0@(P x0 y0) p3@(P x3 y3) = BCurve p0 p1 p2 p3 
     where 
-      d = x1 - x2
-      r = radiusMult * d
-      a = asin (1.0/(2.0*radiusMult))
-      a1 = pi/2.0 - a
-      a2 = pi/2.0 + a
-      c = P (x2 + d/2.0) (y1 - r*(cos a))
+      d = x3 - x0
+      l = mm*d
+      l'= l/p --needed to get smoothness with next segment of curve
+      p1 = P (x0 + l*ca) (y0 - l*sa)
+      p2 = P (x3 - l'*sa) (y3 - l'*ca)
 
-arcsForDivision :: Double -> Division -> (Arc, Arc)
-arcsForDivision radiusMult (Div (C Lower Left) (Rect p1@(P x1 y1) p2@(P x2 y2)) _ (_, Div _ (Rect (P x1' _) _) _ _)) = (a1, a2)
+
+curvesForDivision' :: SinAndCosOfA -> MagnitudeMult -> Division -> (BCurve, BCurve)
+curvesForDivision' sc mm (Div (C Lower Left) (Rect p1@(P x1 y1) p2@(P x2 y2)) _ (_, Div _ (Rect (P x1' _) _) _ _)) = (a1, a2)
     where 
       p' = P x1 y2
-      a1 = arcForPointsVerticalUp radiusMult p1 p'
-      a2 = arcForPointsHorizontalLeft radiusMult p' (P x1' y2)
-arcsForDivision radiusMult (Div (C Lower Right) (Rect p1@(P x1 y1) p2@(P x2 y2)) _ (_, Div _ (Rect (P _ y1') _) _ _)) = (a1, a2)
+      a1 = curveForPointsVerticalUp sc mm p1 p'
+      a2 = curveForPointsHorizontalLeft sc mm p' (P x1' y2)
+curvesForDivision' sc mm (Div (C Lower Right) (Rect p1@(P x1 y1) p2@(P x2 y2)) _ (_, Div _ (Rect (P _ y1') _) _ _)) = (a1, a2)
     where 
       p' = P x2 y1
-      a1 = arcForPointsHorizontalRight radiusMult p' p1
-      a2 = arcForPointsVerticalUp radiusMult p1 (P x1 y1')
-arcsForDivision radiusMult (Div (C Upper Right) (Rect p1@(P x1 y1) p2@(P x2 y2)) _ (_, Div _ (Rect _ (P x2' _)) _ _)) = (a1, a2)
+      a1 = curveForPointsHorizontalRight sc mm p' p1
+      a2 = curveForPointsVerticalUp sc mm p1 (P x1 y1')
+curvesForDivision' sc mm (Div (C Upper Right) (Rect p1@(P x1 y1) p2@(P x2 y2)) _ (_, Div _ (Rect _ (P x2' _)) _ _)) = (a1, a2)
     where 
       p' = P x2 y1
-      a1 = arcForPointsVerticalDown radiusMult p2 p'
-      a2 = arcForPointsHorizontalRight radiusMult p' (P x2' y1)
-arcsForDivision radiusMult (Div (C Upper Left) (Rect p1@(P x1 y1) p2@(P x2 y2)) _ (_, Div _ (Rect _ (P _ y2')) _ _)) = (a1, a2)
+      a1 = curveForPointsVerticalDown sc mm p2 p'
+      a2 = curveForPointsHorizontalRight sc mm p' (P x2' y1)
+curvesForDivision' sc mm (Div (C Upper Left) (Rect p1@(P x1 y1) p2@(P x2 y2)) _ (_, Div _ (Rect _ (P _ y2')) _ _)) = (a1, a2)
     where 
       p' = P x1 y2
-      a1 = arcForPointsHorizontalLeft radiusMult p' p2
-      a2 = arcForPointsVerticalDown radiusMult p2 (P x2 y2')
+      a1 = curveForPointsHorizontalLeft sc mm p' p2
+      a2 = curveForPointsVerticalDown sc mm p2 (P x2 y2')
 
-
+curvesForDivision :: Angle -> MagnitudeMult -> Division -> (BCurve, BCurve)
+curvesForDivision a = curvesForDivision' (sin a, cos a)

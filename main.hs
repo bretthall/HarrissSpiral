@@ -47,7 +47,11 @@ plotScale = 10000.0
 
 data RectType = First | Second deriving (Show, Eq)
                       
-radiusMult = 1.0
+angle = 45.0*pi/180.0
+magMult = 0.4
+
+getCurves :: Division -> (BCurve, BCurve)
+getCurves = curvesForDivision angle magMult
 
 drawPlot :: DrawingArea -> IORef GUIState -> Event -> IO Bool
 drawPlot plot guiState _ = do
@@ -105,14 +109,14 @@ drawPlot plot guiState _ = do
                              fillPreserve
                              setSourceRGB 0.0 0.0 0.0
                              stroke
-                             let (a1, a2) = arcsForDivision radiusMult d
-                             debugPrintM (a1, a2)
-                             strokeArc a1
+                             let (c1, c2) = getCurves d
+                             debugPrintM (c1, c2)                             
+                             bCurve c1
+                             bCurve c2
                              stroke
-                             strokeArc a2
-                             stroke
-        -- probably would look better to use a bezier curve here, circular arcs have kinks at the corners of the squares
-        strokeArc (Arc (P x y) r a1 a2) = arc x y r a1 a2
+        bCurve (BCurve (P x0 y0) (P x1 y1) (P x2 y2) (P x3 y3)) = do
+                             moveTo x0 y0
+                             curveTo x1 y1 x2 y2 x3 y3
         drawRect t r = do
           debugPrintM $ show t ++ show r
           strokeRect r
