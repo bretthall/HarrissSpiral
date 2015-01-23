@@ -10,7 +10,14 @@ import Data.IORef
 import Control.Lens
 import Debug.Trace (traceShow)
 
-data GUIState = GUIState {_numGens::Int, _drawCurves::Bool, _drawSquares::Bool, _colorSquares::Bool, _drawSplitRects::Bool}
+data GUIState = GUIState {_numGens::Int, 
+                          _drawCurves::Bool, 
+                          _drawSquares::Bool, 
+                          _colorSquares::Bool, 
+                          _drawSplitRects::Bool,
+                          _lineThickness::Double,
+                          _entryAngle::Angle,
+                          _magMult::MagnitudeMult}
               deriving Show
 
 $(makeLenses ''GUIState)
@@ -41,6 +48,18 @@ updateGeneration sb state plot = do
   modifyIORef state $ numGens.~(round g)
   readIORef state >>= debugPrintM
   widgetQueueDraw plot
+
+makeNumEntry :: String -> Lens' GUIState Double -> IORef GUIState -> VBox -> DrawingArea -> IO Entry
+makeNumEntry text lens stateRef vBox plot = do  
+  hBox <- hBoxNew
+  boxPackStart vBox hBox PackNatural 0
+  label <- labelNew text
+  boxPackStart hBox label PackNatural 0
+  entry <- entryNew
+  boxPackStart hBox entry PackNatural 0
+  state <- readIORef stateRef 
+  entrySetText entry $ show (state^.lens)
+  --How to handle validation???
 
 plotScale :: Double
 plotScale = 10000.0
