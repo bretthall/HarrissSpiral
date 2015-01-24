@@ -140,12 +140,6 @@ plotScale :: Double
 plotScale = 10000.0
 
 data RectType = First | Second deriving (Show, Eq)
-                      
-angle = 45.0*pi/180.0
-magMultFixed = 0.4
-
-getCurves :: Division -> (BCurve, BCurve)
-getCurves = curvesForDivision angle magMultFixed
 
 drawPlot :: DrawingArea -> IORef GUIState -> Event -> IO Bool
 drawPlot plot guiState _ = do
@@ -175,42 +169,61 @@ drawPlot plot guiState _ = do
                      setSourceRGB 1.0 1.0 1.0
                      paint
 
-                     setLineWidth 10                     
+                     setLineWidth $ state^.lineThickness
+                                  
+                     let getCurves = curvesForDivision ((state^.entryAngleDegrees)*pi/180) (state^.magMult)
+
                      setSourceRGB 0.0 0.0 0.0
                      if state^.numGens == 0
-                        then drawGen0Rect plotWidth
-                        else drawGenerations $ take (state^.numGens) $ generations $ divisions plotWidth
+                        then if state^.drawSplitRects then drawGen0Rect plotWidth else return ()
+                        else drawGenerations state getCurves $ take (state^.numGens) $ generations $ divisions plotWidth
   debugPrintM "****** done drawing"
   return True
       where
         drawGen0Rect w = drawRect First (Rect (P 0 0) (P w (w/p)))
-        drawGenerations (g:gs) = do 
-                             drawGeneration g
+        drawGenerations state getCurves (g:gs) = do 
+                             drawGeneration state getCurves g
                              if null gs
-                                then mapM_ drawLastGeneration g
-                                else drawGenerations gs
-        drawGenerations [] = return ()
-        drawGeneration g = do 
+                                then mapM_ (drawLastGeneration state) g
+                                else drawGenerations state getCurves gs
+        drawGenerations _ _ [] = return ()
+        drawGeneration state getCurves g = do 
           debugPrintM "**** gen start" 
-          mapM_ drawSquare g
+          mapM_ (drawSquare state getCurves) g
           debugPrintM "**** gen end"
-        drawLastGeneration (Div _ _ (r1, _) (r2, _)) = do
+        drawLastGeneration state (Div _ _ (r1, _) (r2, _)) = do
             debugPrintM "**** last gen start"
-            drawRect First r1 
-            drawRect Second r2
+            if state^.drawSplitRects 
+            then do
+              drawRect First r1 
+              drawRect Second r2
+            else
+                return ()
             debugPrintM "**** last gen end"
-        drawSquare d@(Div e s _ _) = do
+        drawSquare state getCurves d@(Div e s _ _) = do
                              debugPrintM $ show e ++ show s 
-                             strokeRect s
-                             setSquareColor e
-                             fillPreserve
-                             setSourceRGB 0.0 0.0 0.0
-                             stroke
+                             if state^.drawSquares
+                             then do
+                               strokeRect s
+                               if state^.colorSquares
+                               then do
+                                 setSquareColor e
+                                 fillPreserve
+                               else
+                                   return ()
+                               setSourceRGB 0.0 0.0 0.0
+                               stroke
+                             else
+                                 return ()
                              let (c1, c2) = getCurves d
                              debugPrintM (c1, c2)                             
-                             bCurve c1
-                             bCurve c2
-                             stroke
+                             if state^.drawCurves
+                             then do
+                               bCurve c1
+                               bCurve c2
+                               stroke
+                             else
+                                 return ()
         bCurve (BCurve (P x0 y0) (P x1 y1) (P x2 y2) (P x3 y3)) = do
                              moveTo x0 y0
                              curveTo x1 y1 x2 y2 x3 y3
@@ -239,7 +252,7 @@ main = do
   hBox <- hBoxNew False 0
   containerAdd win hBox
 
-  guiState <- newIORef $ GUIState 0 True False False False 10.0 45.0 0.4
+  guiState <- newIORef $ GUIState 0 True False False False 25.0 45.0 0.41
 
   plot <- drawingAreaNew
   boxPackStart hBox plot PackGrow 0
