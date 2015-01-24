@@ -23,8 +23,8 @@ data GUIState = GUIState {_numGens::Int,
 $(makeLenses ''GUIState)
 
 debugPrintM :: (Monad m, Show a) => a -> m ()
-debugPrintM a = traceShow a $ return ()
---debugPrintM _ = return ()
+--debugPrintM a = traceShow a $ return ()
+debugPrintM _ = return ()
 
 makeCheckButton :: String -> Lens' GUIState Bool -> IORef GUIState -> VBox -> DrawingArea -> IO CheckButton
 makeCheckButton text lens stateRef box plot = do
@@ -177,10 +177,13 @@ drawPlot plot guiState _ = do
 
                      setLineWidth 10                     
                      setSourceRGB 0.0 0.0 0.0
-                     drawGenerations $ take (state^.numGens) $ generations $ divisions plotWidth
+                     if state^.numGens == 0
+                        then drawGen0Rect plotWidth
+                        else drawGenerations $ take (state^.numGens) $ generations $ divisions plotWidth
   debugPrintM "****** done drawing"
   return True
       where
+        drawGen0Rect w = drawRect First (Rect (P 0 0) (P w (w/p)))
         drawGenerations (g:gs) = do 
                              drawGeneration g
                              if null gs
