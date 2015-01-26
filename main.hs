@@ -9,6 +9,7 @@ import Graphics.UI.Gtk.Gdk.Events
 import Data.IORef
 import Control.Lens
 import Debug.Trace (traceShow)
+import Data.List (intersect, (\\), elemIndex, nub)
 
 data GUIState = GUIState {_numGens::Int, 
                           _drawCurves::Bool, 
@@ -49,16 +50,32 @@ updateGeneration sb state plot = do
   readIORef state >>= debugPrintM
   widgetQueueDraw plot
 
+-- number parsing that allows leading or trailing decimal point
 parseDouble :: String -> Maybe Double
 parseDouble s = parse $ reader s
     where
       reader = (readsPrec 0)::(ReadS Double)
       parse [(n, leftover)] | null leftover = Just n
+                            | leftover == "." = Just n --trailing decimal point
                             | otherwise = Nothing
-      parse _ = if (head s) == '.'
-                then parse $ reader $ '0':s
-                else Nothing
+      parse _ | null s = Nothing
+              | (head s) == '.' = parse $ reader $ '0':s --leading decimal point
+              | otherwise =  Nothing
                
+-- allow any digits in the text to be added, only allow a '.', 'e' or 'E' if we don't already have one
+isOKNumericInput :: String -> String -> Bool
+isOKNumericInput current add = addNub \\ addNub `intersect` ok == ""
+    where
+      addNub = nub add
+      --remove '.'from the ok set if we already have one, then check for 'e'
+      ok = case elemIndex '.' current of
+             Just _ -> okE "0123456789"
+             Nothing -> okE "0123456789."
+      --remove 'e' and 'E' from the ok set if we already have one
+      okE base = case current `intersect` "eE" of
+                   [] -> base ++ "eE"
+                   _ -> base
+
 makeNumEntry :: String -> Lens' GUIState Double -> IORef GUIState -> VBox -> DrawingArea -> IO Entry
 makeNumEntry text lens stateRef vBox plot = do  
   hBox <- hBoxNew False 1
@@ -69,7 +86,6 @@ makeNumEntry text lens stateRef vBox plot = do
   boxPackStart hBox entry PackNatural 0
   state <- readIORef stateRef 
   entrySetText entry $ show $ state^.lens
-  needRedrawRef <- newIORef False
   idInsertRef <- newIORef undefined
   id <- entry `on` insertText $ \str pos -> do
           debugPrintM "Adding text"
@@ -77,64 +93,43 @@ makeNumEntry text lens stateRef vBox plot = do
           debugPrintM $ "old string = " ++ curText
           let newText = (take pos curText) ++ str ++ (drop pos curText)
           debugPrintM $ "new string = " ++ newText
-          case parseDouble newText of
-            Just n -> do
-              debugPrintM $ "new value = " ++ show n
-              modifyIORef stateRef $ lens.~n
-              modifyIORef needRedrawRef $ const True
-              id <- readIORef idInsertRef
-              signalBlock id
-              pos' <- editableInsertText entry str pos
-              signalUnblock id
-              stopInsertText id
-              return pos'
-            Nothing -> do
-              debugPrintM "bad value"
-              id <- readIORef idInsertRef
-              signalBlock id
-              pos' <- editableInsertText entry "" pos
-              signalUnblock id
-              stopInsertText id
-              return pos'
+          if isOKNumericInput curText str
+          then do 
+            debugPrintM "good value"
+            id <- readIORef idInsertRef
+            signalBlock id
+            pos' <- editableInsertText entry str pos
+            signalUnblock id
+            stopInsertText id
+            return pos'
+          else do
+            debugPrintM "bad value"
+            id <- readIORef idInsertRef
+            signalBlock id
+            pos' <- editableInsertText entry "" pos
+            signalUnblock id
+            stopInsertText id
+            return pos'
   writeIORef idInsertRef id
-  idDeleteRef <- newIORef undefined
-  dd <- entry `on` deleteText $ \start end -> do
-          debugPrintM "Deleting text"
-          curText <- entryGetText entry
-          debugPrintM $ "old string = " ++ curText
-          let newText = (take start curText) ++ (drop end curText)
-          debugPrintM $ "new string = " ++ newText
-          case parseDouble newText of
-            Just n -> do
-              debugPrintM $ "new value = " ++ show n
-              modifyIORef stateRef $ lens.~n
-              modifyIORef needRedrawRef $ const True
-              id <- readIORef idDeleteRef
-              signalBlock id
-              pos' <- editableDeleteText entry start end
-              signalUnblock id
-              stopDeleteText id
-            Nothing -> do
-              debugPrintM "bad value"
-              id <- readIORef idDeleteRef
-              signalBlock id
-              pos' <- editableDeleteText entry start start
-              signalUnblock id
-              stopDeleteText id
-  writeIORef idDeleteRef dd
-  entry `on` focusOutEvent $ do
-    needRedraw <- liftIO $ readIORef needRedrawRef
-    if needRedraw
-       then (liftIO $ widgetQueueDraw plot) >> (liftIO $ modifyIORef needRedrawRef (const False))
-       else return ()
-    return False
-  entry `on` entryActivate $ do
-    debugPrintM "activate" 
-    needRedraw <- readIORef needRedrawRef
-    if needRedraw
-       then widgetQueueDraw plot >> modifyIORef needRedrawRef (const False)
-       else return ()
+  lastGoodTextRef <- newIORef $ show $ state^.lens
+  entry `on` focusOutEvent $ (liftIO $ handleNewText lastGoodTextRef entry) >> return False
+  entry `on` entryActivate $ handleNewText lastGoodTextRef entry
   return entry
+    where
+      handleNewText lastGoodTextRef entry = do
+        text <- entryGetText entry
+        case parseDouble text of
+          Just n -> do
+            modifyIORef lastGoodTextRef $ const text
+            state <- readIORef stateRef
+            if n /= state^.lens
+            then do
+              modifyIORef stateRef $ lens.~n
+              widgetQueueDraw plot
+            else return ()
+          Nothing -> do
+            lastGoodText <- readIORef lastGoodTextRef
+            entrySetText entry lastGoodText
 
 plotScale :: Double
 plotScale = 10000.0
